@@ -1,76 +1,58 @@
 
 const fs = require('fs');
-exports.id = 'Settings';
+//exports.id = 'ReactiveObjectModel';
 
 let debug = info = log = warn = error = ()=>{};
 
-class Settings 
+class ROM 
 {
 
     constructor(options) 
     {
         options = this.options = Object.assign(
         { 
+            //source: () => ({}),                         // default: return empty object
+            source: null,                               // default: null source means defaultData will be used (source is a more advanced use case)
+            operation: () => {},                        // default: do nothing
             defaultData: {},
             logger: console
         },
         options);
 
-        this.fileName = null;
-        this.fileData = null;
+        /*
+        this.source = options.source;
+        this.operation = options.operation;
+        /*/
+        //({source, operation} = options);                                                      // properties undefined :(
+        ['source', 'operation'].forEach(prop => this[prop] = options[prop]);
+        //*/
+        this.data = null;
         
-        ({debug, info, log, warn, error} = options.logger);
+        
+        options.logger && ({debug, info, log, warn, error} = options.logger);
     }
 
 
-    /**
-     * load a json settings file
-     * @param {string} fileName the json file to load
-     */
-    //static async load(fileName)       // easier to not make this static at the mo for logger access - could make a static initialisation with setter in the future
-    async load(fileName) 
+    async getModel() 
     {
-        this.fileName = fileName;
+        /*
+        let parsedData = data == null ?
+                            this.options.defaultData :
+                                JSON.parse(data);
+        /*/
+        this.data = (this.source && this.source()) 
+                        || this.options.defaultData;
+        //*/
 
-        this.fileData = await new Promise((resolve, reject) => 
-        {
-            fs.readFile(fileName, (err, data) =>
-            {
-                if (err) error(err);
                 
-                let parsedData = data == null ?
-                                    this.options.defaultData :
-                                        JSON.parse(data);
+        this.data = ROM._addAccessors(this.data, (target, name) => this.operation(this.data, target, name));
 
-                resolve(parsedData);
-            });
-        });
-
-        let writeToken = null;
-        let writeOp = () => 
-        {
-            clearTimeout(writeToken);
-            writeToken = setTimeout(() => 
-            {
-                let data = JSON.stringify(this.fileData, null, '\t');
-                debug(`writing ${this.fileName}:\n${data}`);
-
-                fs.writeFile(this.fileName, data, (err) => {
-                    if (err) error(err);
-                    debug(`saved ${this.fileName}`);
-                });
-            }, 200);
-        }
-                
-        this.fileData = Settings._addAccessors(this.fileData, writeOp);
-
-        return this.fileData;
+        return this.data;
     }
 
 
 
     //static #addAccessors(obj3ct)      // private methods unsupported until nodejs v12
-    //static _addAccessors(obj3ct)
     /**
      * pass an object to get its entire heirarchy reactive
      * @param {object} obj3ct preferralby an object?
@@ -94,6 +76,9 @@ class Settings
             // },
             set(target, name, value, receiver) 
             {
+                if(Array.isArray(target) && name === 'length')                                      // we don't care if <array>.length is being set so... (i'm pretty sure it's bad practice to set the length manually? So this should be done by the js runtime as part of a modification triggered by, say, push()).. so...
+                    return Reflect.set(...arguments);                                                   // just do the normal thing and return
+
                 /*
                 typeof name === "symbol" ?
                     debug(`set prop (symbol): ${name.toString()}`) :
@@ -104,15 +89,16 @@ class Settings
                 //*/
                 
                 if(typeof value === 'object' && !value.__isProxy)
-                    value = Settings._addAccessors(value, operation);
+                    value = ROM._addAccessors(value, operation);
                 
                 debug(`assigning: ${propName}`);
                 target[name] = value;
                 
                 
                 debug(`call write: ${propName}`);
-                operation();
+                operation(target, name);                        // oldValue / newValue / receiver?
                 debug(`finish set: ${propName}`);
+                return true;
             }
         };
 
@@ -127,7 +113,7 @@ class Settings
               .forEach(([key, value]) =>                                                                // array destructure into variables of arrow function...
                         {
                             if(typeof value === 'object' && !value.__isProxy)                               // if the value is an oject and not yet proxied ...
-                                obj3ct[key] = Settings._addAccessors(value, operation);                         // proxy the value and assign it back to its original place
+                                obj3ct[key] = ROM._addAccessors(value, operation);                              // proxy the value and assign it back to its original place
                         });
 
         debug(`returning ${JSON.stringify(proxy)}`);
@@ -137,4 +123,4 @@ class Settings
 }
 
 
-module.exports = Settings;
+module.exports = ROM;
