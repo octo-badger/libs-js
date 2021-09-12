@@ -35,15 +35,8 @@ class ROM
 
     async getModel() 
     {
-        /*
-        let parsedData = data == null ?
-                            this.options.defaultData :
-                                JSON.parse(data);
-        /*/
         this.data = (this.source && this.source()) 
                         || this.options.defaultData;
-        //*/
-
                 
         this.data = ROM._addAccessors(this.data, (target, name) => this.operation(this.data, target, name));
 

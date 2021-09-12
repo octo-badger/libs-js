@@ -18,8 +18,8 @@ class Settings
 
         this.fileName = null;
         this.fileData = null;
-        
-        ({debug, info, log, warn, error} = options.logger);
+     
+        options.logger && ({debug, info, log, warn, error} = options.logger);
     }
 
 
@@ -34,6 +34,7 @@ class Settings
 
         this.fileData = await new Promise((resolve, reject) => 
         {
+            /*
             fs.readFile(fileName, (err, data) =>
             {
                 if (err) error(err);
@@ -44,6 +45,18 @@ class Settings
 
                 resolve(parsedData);
             });
+            /*/
+            let resolver = (data) =>
+            {
+                let parsedData = data == null ?
+                                    this.options.defaultData :
+                                        JSON.parse(data);
+
+                resolve(parsedData);
+            }
+
+            Settings._untestable_readFile(fileName, resolver);
+            //*/
         });
 
         let writeToken = null;
@@ -55,10 +68,7 @@ class Settings
                 let data = JSON.stringify(this.fileData, null, '\t');
                 debug(`writing ${this.fileName}:\n${data}`);
 
-                fs.writeFile(this.fileName, data, (err) => {
-                    if (err) error(err);
-                    debug(`saved ${this.fileName}`);
-                });
+                Settings._untestable_writeFile(this.fileName, data);
             }, 200);
         }
                 
@@ -134,6 +144,39 @@ class Settings
         return proxy;
     }
 
+
+    // --- untestables -----------------------------------------------------
+
+    
+    /**
+     * the minumum untestable code for reading the file
+     * @param {string} fileName the file to write
+     * @param {function} resolver a callback to pass the data to
+     */
+    static _untestable_readFile(fileName, resolver)
+    {
+        fs.readFile(fileName, (err, data) =>
+        {
+            if (err) error(err);
+            resolver(data)
+        });
+    }
+
+
+    /**
+     * the minumum untestable code for writing the file
+     * @param {string} fileName the file to write
+     * @param {any} data data to write
+     */
+    static _untestable_writeFile(fileName, data)
+    {
+        fs.writeFile(fileName, data, (err) => {
+            if (err) error(err);
+            debug(`saved ${fileName}`);
+        });
+    }
+
+    // --- end untestables -------------------------------------------------
 }
 
 
