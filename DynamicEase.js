@@ -27,7 +27,7 @@ class DynamicEase
 
         let stepsPerSec = (1000 / options.stepMillis);
         
-        ({debug, info, log, warn, error} = options.logger);
+        options.logger && ({debug, info, log, warn, error} = options.logger);
         this.vector = 0;
         //this.stepMillis = 20;
         this.token = null;
