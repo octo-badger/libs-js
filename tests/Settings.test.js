@@ -30,22 +30,56 @@ function addHooks(fileName, fileData)
     return fileName;
 }
 
+
+/**
+ * removes problematic whitespace - tranquilizes the maniac
+ * @param {string} jsonString string that needs it's whitespace normalising
+ * @returns a string with a max of a single consecutive space and no tabs or linebreaks
+ */
+let cleanFormatting = (jsonString) => jsonString.replace(/\s+/g, ' ');
+
+/**
+ * only remove quotes if you're not testing with string data 
+ * @param {string} jsonString string to cull all double quotes from
+ * @returns a string with all double quotes removed
+ */
+let removeQuotes = (jsonString) => jsonString.replace(/"/g, '');                    
+
 // afterAll(() => 
 // {
 //     console.log("afterAll called");
 // });
 
 
-test('simple test', async () => 
+test('simple usage', async () => 
 {
     let fileName = addHooks('simple.file', '{}');
 
     const settings = new Settings({ logger: null });
     let config = await settings.load(fileName);
 
-    expect(config).toEqual({});
+    expect(config).toEqual({});                                                     // check load worked
 
     config.x = 1;
 
-    expect(await savePromiseFor[fileName]).toEqual(`{\n\t"x": 1\n}`);
+    let savedData = await savePromiseFor[fileName];                                 // get saved data (needs a little magic to await the normally unawaitable fire-and-forget async save)
+    let cleanSavedData = removeQuotes(cleanFormatting(savedData));                  // clean formatting for ease of comparison
+    expect(cleanSavedData).toEqual(`{ x: 1 }`);                                     // check save happened with updated data
+});
+
+
+test('nested objects save', async () => 
+{
+    let fileName = addHooks('nested.file', '{ "x": { "y": { "z": {} } } }');
+
+    const settings = new Settings({ logger: null });
+    let config = await settings.load(fileName);
+
+    expect(config).toEqual({ x: { y: { z: {} } } });
+
+    config.x.y.z.noo = 2;
+
+    let savedData = await savePromiseFor[fileName];                                 // get saved data (needs a little magic to await the normally unawaitable fire-and-forget async save)
+    let cleanSavedData = removeQuotes(cleanFormatting(savedData));                  // clean formatting for ease of comparison
+    expect(cleanSavedData).toEqual(`{ x: { y: { z: { noo: 2 } } } }`);               // check save happened with updated data
 });

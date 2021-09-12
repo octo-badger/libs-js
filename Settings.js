@@ -148,6 +148,7 @@ class Settings
     // --- untestables -----------------------------------------------------
 
     
+    /* istanbul ignore next */
     /**
      * the minumum untestable code for reading the file
      * @param {string} fileName the file to write
@@ -163,6 +164,7 @@ class Settings
     }
 
 
+    /* istanbul ignore next */
     /**
      * the minumum untestable code for writing the file
      * @param {string} fileName the file to write
