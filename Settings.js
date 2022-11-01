@@ -30,6 +30,7 @@ class Settings
     //static async load(fileName)       // easier to not make this static at the mo for logger access - could make a static initialisation with setter in the future
     async load(fileName) 
     {
+        let deepClone = (data) => JSON.parse(JSON.stringify(data));
         this.fileName = fileName;
 
         this.fileData = await new Promise((resolve, reject) => 
@@ -48,9 +49,10 @@ class Settings
             /*/
             let resolver = (data) =>
             {
-                let parsedData = data == null ?
-                                    this.options.defaultData :
-                                        JSON.parse(data);
+                debug(`got data: ${data != null}`);
+                let parsedData = data == null ?                                                                     // ... if there is no data ...
+                                    deepClone(this.options.defaultData) :                                               // ... create deep clone of the default data
+                                        JSON.parse(data);                                                                   // ... ELSE parse the data
 
                 resolve(parsedData);
             }
