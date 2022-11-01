@@ -4,9 +4,15 @@ exports.id = 'Settings';
 
 let debug = info = log = warn = error = ()=>{};
 
+/**
+ * Open a json file that, when updated, will asynchronously save changes
+ */
 class Settings 
 {
-
+    /**
+     * Initialise settings:
+     * @param {object} options options object
+     */
     constructor(options) 
     {
         options = this.options = Object.assign(
@@ -33,48 +39,37 @@ class Settings
         let deepClone = (data) => JSON.parse(JSON.stringify(data));
         this.fileName = fileName;
 
-        this.fileData = await new Promise((resolve, reject) => 
+        this.fileData = await new Promise((resolve, reject) =>                                              // create a new Promise of file data ...
         {
-            /*
-            fs.readFile(fileName, (err, data) =>
-            {
-                if (err) error(err);
-                
-                let parsedData = data == null ?
-                                    this.options.defaultData :
-                                        JSON.parse(data);
-
-                resolve(parsedData);
-            });
-            /*/
-            let resolver = (data) =>
+            let resolver = (data) =>                                                                            // create a resolver function that takes the loaded data from the readFile ...
             {
                 debug(`got data: ${data != null}`);
                 let parsedData = data == null ?                                                                     // ... if there is no data ...
                                     deepClone(this.options.defaultData) :                                               // ... create deep clone of the default data
                                         JSON.parse(data);                                                                   // ... ELSE parse the data
 
-                resolve(parsedData);
+                resolve(parsedData);                                                                                // resolve the promise with the parsed data
             }
 
-            Settings._untestable_readFile(fileName, resolver);
-            //*/
+            let onError = (err) => debug(`got err: ${err != null}`);
+
+            Settings._untestable_readFile(fileName, resolver, onError);                                     // pass the file name and the resolver into the untestable file reading function
         });
 
-        let writeToken = null;
-        let writeOp = () => 
+        let writeToken = null;                                                                              // timeout token
+        let writeOp = () =>                                                                                 // function to create file writing operations
         {
-            clearTimeout(writeToken);
-            writeToken = setTimeout(() => 
+            clearTimeout(writeToken);                                                                           // clear any existing write operation 
+            writeToken = setTimeout(() =>                                                                       // create a write operation ...
             {
-                let data = JSON.stringify(this.fileData, null, '\t');
+                let data = JSON.stringify(this.fileData, null, '\t');                                               // stringify the data
                 debug(`writing ${this.fileName}:\n${data}`);
 
-                Settings._untestable_writeFile(this.fileName, data);
+                Settings._untestable_writeFile(this.fileName, data);                                                // call static untestable function to save the data
             }, 200);
         }
                 
-        this.fileData = Settings._addAccessors(this.fileData, writeOp);
+        this.fileData = Settings._addAccessors(this.fileData, writeOp);                                     // 
 
         return this.fileData;
     }
@@ -91,7 +86,7 @@ class Settings
      */
     static _addAccessors(obj3ct, operation)
     {
-        log(`adding accessors to ${JSON.stringify(obj3ct)}`);
+        debug(`adding accessors to ${JSON.stringify(obj3ct)}`);
         obj3ct.__isProxy && warn(`obj3ct.__isProxy`);
 
         let handler = 
@@ -146,6 +141,7 @@ class Settings
         return proxy;
     }
 
+    
 
     // --- untestables -----------------------------------------------------
 
@@ -155,12 +151,13 @@ class Settings
      * the minumum untestable code for reading the file
      * @param {string} fileName the file to write
      * @param {function} resolver a callback to pass the data to
+     * @param {function} onError a callback to handle an error
      */
-    static _untestable_readFile(fileName, resolver)
+    static _untestable_readFile(fileName, resolver, onError)
     {
         fs.readFile(fileName, (err, data) =>
         {
-            if (err) error(err);
+            if (err && onError) onError(err);
             resolver(data)
         });
     }

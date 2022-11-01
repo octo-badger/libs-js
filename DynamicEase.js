@@ -4,6 +4,12 @@ let debug = info = log = warn = error = ()=>{};
 
 class DynamicEase 
 {
+    /**
+     * Create a new dynamic easing handler object 
+     * @param {number} target initial value to ease to
+     * @param {object} options options object 
+     * @param {object} callbacks object defining the callbacks
+     */
     constructor(target, options, callbacks) 
     {
         options = this.options = Object.assign(
@@ -99,6 +105,10 @@ class DynamicEase
         }
     }
 
+
+    /**
+     * Stop the easing and snap to the target value
+     */
     reset()
     {
         clearInterval(this.token);
@@ -106,11 +116,23 @@ class DynamicEase
         this.vector = 0;
     }
 
+
+    /**
+     * Set the update callback function
+     * @param {function} callback function to call with the current value as it changes
+     */
     update(callback)
     {
         this.callbacks.onUpdate = callback;
     }
 
+
+    /**
+     * Constrains a value to a particular limit
+     * @param {number} val the value to constrain
+     * @param {number} limit the limit to clamp the value to
+     * @returns value not exceeding the limit
+     */
     absConstrain(val, limit)
     {
         limit = Math.abs(limit);                            // get abs limit
