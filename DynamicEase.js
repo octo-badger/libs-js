@@ -52,19 +52,19 @@ class DynamicEase
         clearInterval(this.token);
         this.target = target;
 
-        //this.token = setInterval(this.loop, this.stepMillis);
-        this.token = setInterval(() => this.loop(), this.options.stepMillis);
+        //this.token = setInterval(this._loop, this.stepMillis);
+        this.token = setInterval(() => this._loop(), this.options.stepMillis);
     }
 
-    loop()
+    _loop()
     {
         let { vector, maxSpeed, acc } = this;
-        let { onUpdate, onComplete } = this.callbacks;
+        let { onComplete } = this.callbacks;
 
         let resistance = ((vector / maxSpeed) * acc);									// resistance tends towards acc as speed tends towards maxSpeed
         let ac = acc - resistance; 													    // resistance should balance out the acceleration
 
-		let dist = this.target - this.pos;                                              // distance to target
+        let dist = this.target - this.pos;                                              // distance to target
 
         // console.log(`vector: ${vector} :: dist: ${dist}`);
 
@@ -76,6 +76,7 @@ class DynamicEase
 
             //console.log('completed');
             clearInterval(this.token);
+            this._emitUpdate();
             onComplete && onComplete(this);
         }
         else
@@ -91,18 +92,28 @@ class DynamicEase
             this.pos += this.vector;
             ////console.info('loop-' + this.vector + " :: " + this.pos);
             
-            let { clamp, round } = this.options;
+            //let { clamp, round } = this.options;
+            let { clamp } = this.options;
 
             this.pos = clamp.upper != null && (this.pos > clamp.upper) ? clamp.upper :
                         clamp.lower != null && (this.pos < clamp.lower) ? clamp.lower :
                             this.pos;
 
-            let pos = round ? 
-                        Math.round(this.pos) :
-                            this.pos;
-
-            onUpdate(pos);
+            this._emitUpdate();
         }
+    }
+
+
+    _emitUpdate()
+    {
+        let { round } = this.options;
+        let { onUpdate } = this.callbacks;
+
+        let pos = round ? 
+                    Math.round(this.pos) :
+                        this.pos;
+
+        onUpdate(pos);
     }
 
 
@@ -114,6 +125,7 @@ class DynamicEase
         clearInterval(this.token);
         this.pos = this.target;
         this.vector = 0;
+        this._emitUpdate();                                     // must let the subscriber know
     }
 
 
