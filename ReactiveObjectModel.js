@@ -1,5 +1,4 @@
 
-const fs = require('fs');
 //exports.id = 'ReactiveObjectModel';
 
 let debug = info = log = warn = error = ()=>{};
