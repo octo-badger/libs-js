@@ -1,6 +1,6 @@
 
 //exports.id = 'DynamicEase';
-let debug = info = log = warn = error = ()=>{};
+//let debug = info = log = warn = error = ()=>{};
 
 class DynamicEase 
 {
@@ -14,7 +14,7 @@ class DynamicEase
     {
         options = this.options = Object.assign(
         { 
-            logger: console,
+            //logger: console,
             initial: 0,
             maxChangePerSec: 1000, 
             acc: 0.3, 
@@ -33,7 +33,7 @@ class DynamicEase
 
         let stepsPerSec = (1000 / options.stepMillis);
         
-        options.logger && ({debug, info, log, warn, error} = options.logger);
+        //options.logger && ({debug, info, log, warn, error} = options.logger);
         this.vector = 0;
         //this.stepMillis = 20;
         this.token = null;
@@ -41,7 +41,7 @@ class DynamicEase
         this.maxSpeed = options.maxChangePerSec / stepsPerSec;
         this.acc = options.acc / stepsPerSec;
 
-        console.log(`max speed: ${this.maxSpeed} / acceleration: ${this.acc} / steps/s: ${stepsPerSec}`);
+        console.debug(`max speed: ${this.maxSpeed} / acceleration: ${this.acc} / steps/s: ${stepsPerSec}`, 'dynamicease', 'low');
         
         //this.target = target;
         this.set(target);
@@ -66,7 +66,7 @@ class DynamicEase
 
         let dist = this.target - this.pos;                                              // distance to target
 
-        // console.log(`vector: ${vector} :: dist: ${dist}`);
+        // console.debug(`vector: ${vector} :: dist: ${dist}`);
 
         // if(Math.abs(vector) < 1 && Math.abs(dist) < 1)
         if(Math.abs(dist) < 1)

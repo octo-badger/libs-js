@@ -1,20 +1,22 @@
 
 //exports.id = 'ReactiveObjectModel';
 
-let debug = info = log = warn = error = ()=>{};
+//let debug = info = log = warn = error = ()=>{};
 
 class ROM 
 {
 
     constructor(options) 
     {
+        console.debug(`in ROM constructor()`, 'rom', 'low');
+
         options = this.options = Object.assign(
         { 
             //source: () => ({}),                         // default: return empty object
             source: null,                               // a function that will return the default data -                           default: null source means defaultData will be used (source is a more advanced use case)
             operation: () => {},                        // the custom operation that will be called when a property is updated  -   default: do nothing
             defaultData: {},
-            logger: console
+            //logger: console
         },
         options);
 
@@ -28,12 +30,15 @@ class ROM
         this.data = null;
         
         
+        /*
         options.logger && ({debug, info, log, warn, error} = options.logger);
+        /*/
     }
 
 
     async getModel() 
     {
+        console.debug(`in getModel()`, 'rom', 'low');
         this.data = (this.source && this.source()) 
                         || this.options.defaultData;
                 
@@ -53,7 +58,7 @@ class ROM
      */
     static _addAccessors(obj3ct, operation)
     {
-        debug(`adding accessors to ${JSON.stringify(obj3ct)}`);
+        console.debug(`adding accessors to ${JSON.stringify(obj3ct)}`, 'rom', 'low');
         obj3ct.__isProxy && warn(`obj3ct.__isProxy`);
 
         let handler = 
@@ -73,22 +78,22 @@ class ROM
 
                 /*
                 typeof name === "symbol" ?
-                    debug(`set prop (symbol): ${name.toString()}`) :
-                        debug(`set prop: ${name}`);
+                    console.debug(`set prop (symbol): ${name.toString()}`) :
+                        console.debug(`set prop: ${name}`);
                 /*/
                 let propName = typeof name === "symbol" ? `(symbol): ${name.toString()}` : name;    // grab the property name        
-                debug(`set prop: ${propName}`);
+                console.debug(`set prop: ${propName}`, 'rom', 'low');
                 //*/
                 
                 if(typeof value === 'object' && !value.__isProxy)                                   // if the value to set is a non-proxied object ...
                     value = ROM._addAccessors(value, operation);                                        // ...make it a ROM proxy
                 
-                debug(`assigning: ${propName}`);
+                console.debug(`assigning: ${propName}`, 'rom', 'low');
                 target[name] = value;                                                               // set the value
                 
-                debug(`call write: ${propName}`);
+                console.debug(`call write: ${propName}`, 'rom', 'low');
                 operation(target, name);                                                            // call the custom operation    // oldValue / newValue / receiver?
-                debug(`finish set: ${propName}`);
+                console.debug(`finish set: ${propName}`, 'rom', 'low');
                 return true;
             }
         };
@@ -99,7 +104,7 @@ class ROM
 
         Object.defineProperty(proxy, '__isProxy', { value: true, enumerable: false });              // record whether the object has been proxified (there's no way to tell otherwise) // ideally use symbol instead
         
-        debug(`iterating`);
+        console.debug(`iterating`, 'rom', 'low');
         Object.entries(obj3ct)                                                                      // entries gives the same looking array whether obj3ct is an object or an array...   // compare: Object.entries({a:1,b:2,c:3}) and Object.entries(['a','b','c'])
               .forEach(([key, value]) =>                                                                // array destructure into variables of arrow function...
                         {
@@ -107,7 +112,7 @@ class ROM
                                 obj3ct[key] = ROM._addAccessors(value, operation);                              // proxy the value and assign it back to its original place
                         });
 
-        debug(`returning ${JSON.stringify(proxy)}`);
+        console.debug(`returning ${JSON.stringify(proxy)}`, 'rom', 'low');
         return proxy;
     }
 
