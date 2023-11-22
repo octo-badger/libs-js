@@ -7,4 +7,8 @@ Settings:
 An auto-saving data structure (useful for config that automatically persists), subclassed from Reative Object Model.
 
 Dynamic Ease:
+Easing usually interpolates between a starting position and a fixed target, this adaptively eases between the current value and a potentially changing target.
+It effectively adds 'momentum' to the vector, but also adaptively accellerates towards the target and slows as the target is approached.
+The accelleration / decelleration and max speed are configurable.
+This is useful for easily smoothing transitions, such as LED brightness or preventing aggressive changes in servo position.
 
