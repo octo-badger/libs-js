@@ -14,7 +14,7 @@ class SpiQueue
 
 
     /**
-     * Start procesing queue items.
+     * Start processing queue items.
      * Handles the current and previous operations, setting up the transfer
      */
     async go() 
@@ -91,7 +91,7 @@ class SpiQueue
                         err && reject();
 
                         this.saveBuf(operation.payload, inBuf);
-                        inBuf.subarray().forEach((byte, i) => // iterate the bytes in retreived buffer ...
+                        inBuf.subarray().forEach((byte, i) => // iterate the bytes in retrieved buffer ...
                         {
                             // slightly wrong - first operation will br passed the bytes that are read which really belong to no-one ... but perhaps this is a good thing? better than them just being discarded?
                             if (previousOperation && previousOperation.result(byte)) {
@@ -174,7 +174,7 @@ class Operation
     /**
      * General operation constructor
      * @param {Buffer} payload binary data to send (reads must also send data)
-     * @param {function} callback callback to send recieved data to
+     * @param {function} callback callback to send received data to
      */
     constructor(payload, callback, name)
     {
@@ -194,8 +194,8 @@ class Operation
         let name = this.name ? ` for ${this.name}` : '';
         console.log(`resulting byte${name}: ${byte.toString(16)}`);
         let complete = this.callback(byte);
-        let keepTransfering = complete !== true;
-        return keepTransfering;
+        let keepTransferring = complete !== true;
+        return keepTransferring;
     }
 
 
