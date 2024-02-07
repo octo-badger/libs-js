@@ -71,34 +71,29 @@ let log3rd = Math.floor(logSize / 3);
 
     let { log, debug, error } = global.console;
 
-    /*
-    global.console.log = (msg, ...tags) => 
+    const tagPattern = /^#\w+$/;
+
+
+    function createLogger(level, output)
     {
-        let logEntry = `log ${timestamp()}: ${msg}`;
-        log(logEntry);
-        persist(logEntry, tags);
+        return (msg, ...args) => 
+        {
+            let tagIndex = args.findIndex(i => tagPattern.test(i));                                 // find the first tag-lookin' thang
+            let tags = tagIndex > -1 ? args.splice(tagIndex) : [];                                  // if tags were found - extract them from args into tags array ELSE (when index is -1) leave args as is and create an empty tags array
+            let logEntry = `${timestamp()} (${level}): ${msg}`;                                            // add time stamp and log level
+            output && output(logEntry, ...args);
+            // capture / intercept string output from log classic to pass to persist?
+            persist(logEntry, tags);
+        }
     }
-    /*/
-    let tagPattern = /^#\w+$/;
+    
 
-    global.console.log = (msg, ...args) => 
-    {
-        let tagIndex = args.findIndex(i => tagPattern.test(i));                                // find the first tag-lookin' thang
-        let tags = tagIndex > -1 ? args.splice(tagIndex) : [];                                 // if tags were found - extract them from args into tags array ELSE (when index is -1) leave args as is and create an empty tags array
-        let logEntry = `log ${timestamp()}: ${msg}`;                                        // add time stamp and log level
-        log(logEntry, ...args);
-        // capture / intercept string output from log classic to pass to persist?
-        persist(logEntry, tags);
-    }
-    //*/
+    global.console.log = createLogger('log', log);
 
-    global.console.debug = (msg, ...tags) => 
-    {
-        let logEntry = `dbg ${timestamp()}: ${msg}`;
-        //debug(log);                                       // don't output debug to stdout (debug classic)
-        persist(logEntry, tags);
-    };
+    global.console.debug = createLogger('debug');               // undefined output will prevent output to stdout, but will still add logs
+        
 
+    // TEST code -------------------------------
 
 
     // global.console.debug = () => {};
