@@ -1,10 +1,12 @@
 
 const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
 
+let pad = (num, i = 2) => (num + '').padStart(i, '0');          // pretty sure this will break in earlier node versions
+
 function timestamp()
 {
     let d = new Date();
-    return `${d.getFullYear()}${(d.getMonth()+1+'').padStart(2, '0')}${(d.getDate()+'').padStart(2, '0')}-${d.toLocaleTimeString('default', timeOptions)}.` + `${d.getMilliseconds()}`.padStart(3, '0');
+    return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${d.toLocaleTimeString('default', timeOptions)}.${pad(d.getMilliseconds(), 3)}`;
 }
 
 
@@ -92,8 +94,6 @@ let log3rd = Math.floor(logSize / 3);
 
     global.console.debug = createLogger('debug');               // undefined output will prevent output to stdout, but will still add logs
         
-
-    // TEST code -------------------------------
 
 
     // global.console.debug = () => {};
