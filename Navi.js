@@ -1,6 +1,15 @@
-// Navi is Link's shoulder angel in Ocarina of Time
-
 /*
+    Navi is Link's shoulder angel in Ocarina of Time.
+    Spawns 3 other processes, and inhabits the application importing it - all 4 processes then watches the others for inactivity.
+    Each Navi instance watches all the others, but each is watched with varying intensity (determined by relativePriority() ).
+
+    Beware! The main application port is hard-assumed to be a multiple of 10 (ending in a zero) - I suspect bad things would happen if this is not the case.
+
+    Usage:
+        Just requiring Navi is enough to get it working - congratulations! Your application is now unkillable! 
+        To terminate the application grab scissors in one hand and the computer power cable in t'other
+        Only joking... run "node lib/Navi.js kill" in another terminal
+
 
     > node index.js
         - require(navi.js)
@@ -75,45 +84,46 @@ console.log(`${pport}: args: `, args);
 */
 const http = require('http');
 const { spawn } = require('child_process');
-
-function wake(application, scriptFile = './lib/Navi.js', newPort = 3231)
-{
-    console.log(`${pport}: wake up ${application}:${newPort}!`);
-    let stdio = 'inherit';
-
-    // special handling for windows (untested cos I'm not using win node)
-    if (/^win/i.test(process.platform)) 
-    {
-        const fs = require('fs');
-        console.debug('detected windows');
-        const out = fs.openSync('./tmp/navi.log', 'a');
-        const err = fs.openSync('./tmp/navi.log', 'a');
-        stdio =  [ 'ignore', out, err ];
-    }
-
-    const subprocess = spawn('node', [scriptFile, newPort, application], { 
-        detached: true,
-        stdio: stdio
-    });
-
-    subprocess.unref();                                             // allows the parent to exit (windows also needs the stdio / ipc to not be connected, linux (and mac?) doesn't care)
-}
+const internal = require('stream');
 
 
-let naviNum = 3;                                                                                    // maintain 3 navis
-const isNavi = /\/Navi\.js$/.test(args.application);                                                // is the application a Navi?
+let naviNum = 3;                                                                                    // maintain 3 navis (hardcoded for now)
+const isNavi = /\/Navi\.js$/.test(args.application);                                                // is the application a Navi? (This will be true for Navi's that aren't the main application)
 var relativePriority = (local, remote) => ((local+naviNum) - remote) % naviNum;                     // calculation of a unique modifier for each navi's relationship to the remote navi
 console.debug(`${pport}: navi test: ${isNavi}`);
-
-
 
 let heartToken = null;
 const navis = new Map();
 
 const application = isNavi ? args.entry : args.application;                                             // get proper entry script from args (if it's a navi the application is sent as args.entry, otherwise it's just the application)
-console.debug(`${pport}: navi started`, process.argv);
+console.debug(`${pport}: navi started`, process.argv, '#keep');
 
+
+/**
+ * Initialise a navi instance with the given port
+ * @param {int} port The port this navi should listen to (also used as the Navi's Id)
+ */
 function init(port = 3230)
+{
+    buildNaviCollection(port);
+    spinUpServer(port);
+
+    for(const [key, value] of navis.entries())
+    {
+        //const salt = Math.floor(Math.random() * 15000);                                                     // random salt to introduce variation between
+        const salt = Math.floor(Math.random() * 2000);                                                          // random salt to introduce variation between Navi instances
+        const period = 5000 + salt + (relativePriority(port, key) * (3000 + salt));
+        console.debug(`${port}: will check ${key} every ${period}ms`);
+        heartToken = setInterval(() => checkHeartbeats(key, value), period);
+    }
+}
+
+
+/**
+ * Build the collection of navis from this Navi's perspective
+ * @param {int} port The port for this Navi
+ */
+function buildNaviCollection(port)
 {
     const idx = port % 10;                                                                              // local navi index
     const portBase = port - idx;                                                                        // navi cluster base port - the port rounded to the nearest 10
@@ -128,18 +138,7 @@ function init(port = 3230)
                             application: application                                                            // the application is the application
                         });
     }
-    console.log(`${port}: collected:`);
-    console.log(navis);
-
-    spinUpServer(port);
-
-    for(const [key, value] of navis.entries())
-    {
-        const salt = Math.floor(Math.random() * 15000);
-        const period = 5000 + salt + (relativePriority(port, key) * (3000 + salt));
-        console.debug(`${port}: will check ${key} every ${period}ms`);
-        heartToken = setInterval(() => checkHeartbeats(key, value), period);
-    }
+    console.log(`${port}: collected: `, navis, '#keep', '#init');
 }
 
 
@@ -190,65 +189,25 @@ const options = {
     path: '/navi',
     method: 'GET'
 };
+const aliveResponse = /alive (\d+)/;
 
-    
-/*
-function checkHeartbeats()
-{
-    console.log(`${port}: checking heartbeats`);
-    const aliveResponse = /alive (\d+)/;
-
-    for(const [key, value] of navis.entries())
-    {
-        console.log(`${port}: checking ${key}`);
-        options.port = key;
-
-        const req = http.request(options, (res) => 
-        {
-            let data = '';
-            res.on('data', (chunk) => data += chunk);
-            
-            res.on('end', () => {
-                //console.log(`${port}: Body:`, JSON.parse(data));
-                console.log(`${port}: Body(${key}):`, data);
-                if(aliveResponse.test(data))
-                {
-                    value.pid = data.replace(aliveResponse, '$1');
-                    console.debug(`${port}: set ${key}'s PID to ${value.pid}`);
-                }
-                else
-                {
-                    //dealWithDeadness(key, value);
-                }
-            });
-            
-        }).on("error", (err) => {
-            //console.log(`${port}: Error: `, err);
-            console.log(`${port}: Error: ${key}, ${err}`);
-            dealWithDeadness(key, value);
-        }).end()
-    }
-}
-/*/
 function checkHeartbeats(remotePort, navi)
 {
-    console.log(`${pport}: checking heartbeat for ${remotePort}`);
-    const aliveResponse = /alive (\d+)/;
-
-    console.log(`${pport}: checking ${remotePort}`);
+    console.log(`${pport}: checking heartbeat for ${remotePort}`, '#heartbeat', '#low');
     options.port = remotePort;
 
-    const req = http.request(options, (res) => 
+    // const req = http.request(options, (res) => 
+    http.request(options, (res) => 
     {
         let data = '';
         res.on('data', (chunk) => data += chunk);
         
         res.on('end', () => {
-            console.log(`${pport}: Body(${remotePort}):`, data);
+            console.log(`${pport}: Body(${remotePort}):`, data, '#heartbeat', '#low');
             if(aliveResponse.test(data))
             {
                 navi.pid = data.replace(aliveResponse, '$1');
-                console.debug(`${pport}: set ${remotePort}'s PID to ${navi.pid}`);
+                console.debug(`${pport}: set ${remotePort}'s PID to ${navi.pid}`, '#heartbeat', '#low');
             }
         });
         
@@ -257,71 +216,102 @@ function checkHeartbeats(remotePort, navi)
         dealWithDeadness(remotePort, navi);
     }).end()
 }
-//*/
 
 let timeouts = [];
-function dealWithDeadness(deadPort, value)
+function dealWithDeadness(deadPort, deadNavi)
 {
     /*
-        dead-check count:
+        dead-check count (test script):
         (localPort, deadPort) => ((localPort + (numNavis*2))) - deadPort) % numNavis;
 
         var navis = [3120, 3121, 3122, 3123, 3124, 3125, 3126];
         var relativePriority = (local, dead) => ((local+navis.length) - dead) % navis.length;
         navis.forEach(dead => console.log(`dead (${dead}): `, navis.filter(local => local !== dead && local !== 3120).map(local => relativePriority(local, dead))));
-
     */
     
-    let priority = relativePriority(pport, deadPort);
-    priority **= 3;                                                         // cube it to increase the delay spacing  // cube it to make it more likely to be the last one to restart (copilot wrote this)
-    
+    let priority = relativePriority(pport, deadPort);                                       // get the priority this Navi has with the dead Navi
+    priority **= 3;                                                                         // cube it to increase the delay spacing  // cube it to make it more likely to be the last one to restart (copilot wrote this comment)
 
     timeouts.push(setTimeout(() =>
     {
         if(!quitting)
         {
             try{
-                process.kill(value.pid, 'SIGKILL');                                         // try kill value.pid (this could be more subtle, but we're just cleaning up here...)
+                process.kill(deadNavi.pid, 'SIGKILL');                                         // try to kill the dead Navi by process id (this could be more subtle, but we're just cleaning up here...)
             } catch(e) {
-                console.error();(`${pport}: error SIGKILLing ${value.pid}`);
+                console.error();(`${pport}: error SIGKILLing ${deadNavi.pid}`);
             }
         }
     }, priority * 100));
-
     
     /// TODO: delay here but kill the timeout if quitting (race condition this can be starting a new process as quitting happens and restart a just-killed process)
     timeouts.push(setTimeout(() =>
     {
         if(!quitting)
-            wake(value.application, value.procName, deadPort);                              // respawn
+            wake(deadNavi.application, deadNavi.procName, deadPort);                              // respawn
     }, priority * 200));
 }
 
 
-let quitting = false;
+const stdio = 'inherit';
+/**
+ * Run a new process to replace the one we've found is missing
+ * @param {String} application the application we're ultimately keeping alive
+ * @param {String} scriptFile The script we're actually going to run
+ * @param {int} newPort The port the new process will listen on
+ */
+function wake(application, scriptFile = './lib/Navi.js', newPort = 3231)
+{
+    console.log(`${pport}: wake up ${application}:${newPort}!`, '#wake', '#keep');
+
+    // special handling for windows (untested cos I'm not using win node)
+    if (/^win/i.test(process.platform)) 
+    {
+        const fs = require('fs');
+        console.debug('detected windows', '#wake');
+        const out = fs.openSync('./tmp/navi.log', 'a');
+        const err = fs.openSync('./tmp/navi.log', 'a');
+        stdio =  [ 'ignore', out, err ];
+    }
+
+    const subprocess = spawn('node', [scriptFile, newPort, application], { 
+        detached: true,
+        stdio: stdio
+    });
+
+    subprocess.unref();                                                                                     // allows the parent to exit (windows also needs the stdio / ipc to not be connected, linux (and mac?) doesn't care)
+}
+
+
+let quitting = false;                                                                                   // we simply DON'T QUIT! ... by default
 /**
  * tell everyone to pack up and go home... then say goodbye.
  */
 function quit()
 {
     quitting = true;                                                                                            // set the quitting flag
-    heartToken && clearInterval(heartToken);                                                                    // make sure navi's aren't going to be respawned after quitting :)
+    args.kill ? 
+        console.debug(`quit() called - Navi started with KILL ARG and port ${pport}:`, '#quit', '#keep'):
+            console.debug(`${pport}: quit() called`, '#quit', '#keep');
 
-    console.log(`${pport}: exiting (clearing ${timeouts.length} deferred wake-ups)`);
+    heartToken && clearInterval(heartToken);                                                                    // make sure navis aren't going to be respawned after quitting :)
+
+    console.log(`${pport}: exiting (clearing ${timeouts.length} deferred wake-ups)`, '#quit');
     timeouts.forEach(t => clearTimeout(t));                                                                     // clear all the timeouts
     timeouts = [];                                                                                              // empty the timeouts array
     const options = { path: '/kill', method: 'GET' };
 
-    navis.size === 0 && navis.set(pport, {});                                                                    // actually not sure why I did this? // if we're the only navi, add ourselves to the list so we can kill ourselves
+    //navis.size === 0 && navis.set(pport, {});                                                                 // ok - this will be the case when running "node lib/Navi.js kill" as init() will not be called - that means the http server won't be running and sending kill to pport will actually call the main application (by default - you could specify another port on the cli) // actually not sure why I did this? // if we're the only navi, add ourselves to the list so we can kill ourselves
+    navis.size === 0 && buildNaviCollection(pport);                                                             // if the navis array is empty, init() hasn't run (this happens if Navi.js is started with a 'kill' arg) - if so, build the navis array so we can tell them all to quit 
 
     for(const [key, navi] of navis.entries())                                                                   // tell everyone to quit
     {
         if(!navi.killed)                                                                                            // don't kill the same port twice
         {
+            console.log(`${pport}: killing ${key}`, '#quit');
             options.port = key;                                                                                         // set the port to kill
-            console.log(`${pport}: killing ${options.port}`);
             navi.killed = true;                                                                                         // mark it as killed        
-            http.request(options, () => console.log(`${pport}: killed ${options.port}`) )                                // kill it
+            http.request(options, () => console.log(`${pport}: killed ${options.port}`) )                               // kill it
                 // .on("error", (err) => console.log(`${pport}: kill error: `, err))
                 .on("error", () => {})                                                                                  // we don't care if there's an error I think.... we do get errors telling already dead sockets to kill themselves
                 .end()
@@ -333,7 +323,7 @@ function quit()
 }
 
 
-args.kill ? quit() : init(args.port);                                                                                // quit or init?
+args.kill ? quit() : init(args.port);                                                                       // quit or init?
         
 module.exports = { init };
 
@@ -347,7 +337,7 @@ function go()
 {
     setTimeout(() =>
     {
-        console.log(`${pport}: Navi ${count}`);
+        console.log(`${pport}: Navi ${count}`, '#low');
         if(count-- > 0) go();
     },
     1000);
