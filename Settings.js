@@ -2,7 +2,7 @@
 const fs = require('fs');
 exports.id = 'Settings';
 
-let debug = info = log = warn = error = ()=>{};
+// let debug = info = log = warn = error = ()=>{};
 
 /**
  * Open a json file that, when updated, will asynchronously save changes
@@ -17,15 +17,15 @@ class Settings
     {
         options = this.options = Object.assign(
         { 
-            defaultData: {},
-            logger: console
+            defaultData: {}
+            // logger: console
         },
         options);
 
         this.fileName = null;
         this.fileData = null;
      
-        options.logger && ({debug, info, log, warn, error} = options.logger);
+        // options.logger && ({debug, info, log, warn, error} = options.logger);
     }
 
 
@@ -43,7 +43,7 @@ class Settings
         {
             let resolver = (data) =>                                                                            // create a resolver function that takes the loaded data from the readFile ...
             {
-                debug(`got data: ${data != null}`, 'settings', 'low');
+                console.debug(`got data: ${data != null}`, '#settings', '#low');
                 let parsedData = data == null ?                                                                     // ... if there is no data ...
                                     deepClone(this.options.defaultData) :                                               // ... create deep clone of the default data
                                         JSON.parse(data);                                                                   // ... ELSE parse the data
@@ -51,7 +51,7 @@ class Settings
                 resolve(parsedData);                                                                                // resolve the promise with the parsed data
             }
 
-            let onError = (err) => debug(`got err: ${err != null}`, 'settings', 'low');
+            let onError = (err) => console.debug(`got err: ${err != null}`, '#settings', '#low');
 
             Settings._untestable_readFile(fileName, resolver, onError);                                     // pass the file name and the resolver into the untestable file reading function
         });
@@ -63,7 +63,7 @@ class Settings
             writeToken = setTimeout(() =>                                                                       // create a write operation ...
             {
                 let data = JSON.stringify(this.fileData, null, '\t');                                               // stringify the data
-                debug(`writing ${this.fileName}:\n${data}`, 'settings', 'low');
+                console.debug(`writing ${this.fileName}:\n${data}`, '#settings', '#low');
 
                 Settings._untestable_writeFile(this.fileName, data);                                                // call static untestable function to save the data
             }, 200);
@@ -86,8 +86,8 @@ class Settings
      */
     static _addAccessors(obj3ct, operation)
     {
-        debug(`adding accessors to ${JSON.stringify(obj3ct)}`, 'settings', 'low');
-        obj3ct.__isProxy && warn(`obj3ct.__isProxy`);
+        console.debug(`adding accessors to ${JSON.stringify(obj3ct)}`, '#settings', '#low');
+        obj3ct.__isProxy && console.warn(`obj3ct.__isProxy`, '#keep');
 
         let handler = 
         {
@@ -103,23 +103,23 @@ class Settings
             {
                 /*
                 typeof name === "symbol" ?
-                    debug(`set prop (symbol): ${name.toString()}`) :
-                        debug(`set prop: ${name}`);
+                    console.debug(`set prop (symbol): ${name.toString()}`) :
+                        console.debug(`set prop: ${name}`);
                 /*/
                 let propName = typeof name === "symbol" ? `(symbol): ${name.toString()}` : name;
-                debug(`set prop: ${propName}`, 'settings', 'low');
+                console.debug(`set prop: ${propName}`, '#settings', '#low');
                 //*/
                 
                 if(typeof value === 'object' && !value.__isProxy)
                     value = Settings._addAccessors(value, operation);
                 
-                debug(`assigning: ${propName}`, 'settings', 'low');
+                console.debug(`assigning: ${propName}`, '#settings', '#low');
                 target[name] = value;
                 
                 
-                debug(`call write: ${propName}`, 'settings', 'low');
+                console.debug(`call write: ${propName}`, '#settings', '#low');
                 operation();
-                debug(`finish set: ${propName}`, 'settings', 'low');
+                console.debug(`finish set: ${propName}`, '#settings', '#low');
             }
         };
 
@@ -129,7 +129,7 @@ class Settings
 
         Object.defineProperty(proxy, '__isProxy', { value: true, enumerable: false });              // use symbol instead
         
-        debug(`iterating`, 'settings', 'low');
+        console.debug(`iterating`, '#settings', '#low');
         Object.entries(obj3ct)                                                                      // entries gives the same looking array whether obj3ct is an object or an array...   // compare: Object.entries({a:1,b:2,c:3}) and Object.entries(['a','b','c'])
               .forEach(([key, value]) =>                                                                // array destructure into variables of arrow function...
                         {
@@ -137,7 +137,7 @@ class Settings
                                 obj3ct[key] = Settings._addAccessors(value, operation);                         // proxy the value and assign it back to its original place
                         });
 
-        debug(`returning ${JSON.stringify(proxy)}`, 'settings', 'low');
+        console.debug(`returning ${JSON.stringify(proxy)}`, '#settings', '#low');
         return proxy;
     }
 
@@ -172,8 +172,8 @@ class Settings
     static _untestable_writeFile(fileName, data)
     {
         fs.writeFile(fileName, data, (err) => {
-            if (err) error(err);
-            debug(`saved ${fileName}`);
+            if (err) console.error(err, '#keep');
+            console.debug(`saved ${fileName}`);
         });
     }
 
