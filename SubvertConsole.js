@@ -20,7 +20,7 @@ const log3rd = Math.floor(logSize / 3);
 (function()
 {
     /**
-     * Deferred persistance of the log entry to local structure that is automatically cleaned up when over-sized
+     * Deferred persistence of the log entry to local structure that is automatically cleaned up when over-sized
      * @param {String} logEntry log text including timestamp and level
      * @param {Array<String>} tags an array of strings
      */

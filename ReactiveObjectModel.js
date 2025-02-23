@@ -8,11 +8,10 @@ class ROM
 
     constructor(options) 
     {
-        console.debug(`in ROM constructor()`, 'rom', 'low');
+        console.debug(`in ROM constructor()`, '#rom', '#low');
 
         options = this.options = Object.assign(
         { 
-            //source: () => ({}),                         // default: return empty object
             source: null,                               // a function that will return the default data -                           default: null source means defaultData will be used (source is a more advanced use case)
             operation: () => {},                        // the custom operation that will be called when a property is updated  -   default: do nothing
             defaultData: {},
@@ -25,7 +24,7 @@ class ROM
         this.operation = options.operation;
         /*/
         //({source, operation} = options);                                                      // properties undefined :(
-        ['source', 'operation'].forEach(prop => this[prop] = options[prop]);
+        ['source', 'operation'].forEach(prop => this[prop] = options[prop]);                        // map required options properties ont
         //*/
         this.data = null;
         
@@ -38,7 +37,7 @@ class ROM
 
     async getModel() 
     {
-        console.debug(`in getModel()`, 'rom', 'low');
+        console.debug(`in getModel()`, '#rom', '#low');
         this.data = (this.source && this.source()) 
                         || this.options.defaultData;
                 
@@ -51,23 +50,23 @@ class ROM
 
     //static #addAccessors(obj3ct)      // private methods unsupported until nodejs v12
     /**
-     * pass an object to get its entire heirarchy reactive
-     * @param {object} obj3ct preferralby an object?
+     * pass an object to get its entire hierarchy reactive
+     * @param {object} obj3ct preferably an object?
      * @param {function} operation a function to call when the object structure is modified
      * @returns a proxied object, ready to listen
      */
     static _addAccessors(obj3ct, operation)
     {
-        console.debug(`adding accessors to ${JSON.stringify(obj3ct)}`, 'rom', 'low');
+        console.debug(`adding accessors to ${JSON.stringify(obj3ct)}`, '#rom', '#low');
         obj3ct.__isProxy && warn(`obj3ct.__isProxy`);
 
         let handler = 
         {
             // get(target, name, receiver) 
             // {
-            //     // typeof name === "symbol" ?
-            //     //     log(`get prop (symbol): ${name.toString()}`) :
-            //     //         log(`get prop: ${name}`);
+            //     typeof name === "symbol" ?
+            //         console.debug(`get prop (symbol): ${name.toString()}`, '#low') :
+            //             console.debug(`get prop: ${name}`, '#low');
 
             //     return Reflect.get(...arguments);
             // },
@@ -82,18 +81,20 @@ class ROM
                         console.debug(`set prop: ${name}`);
                 /*/
                 let propName = typeof name === "symbol" ? `(symbol): ${name.toString()}` : name;    // grab the property name        
-                console.debug(`set prop: ${propName}`, 'rom', 'low');
+                console.debug(`set prop: ${propName}`, '#rom', '#low');
                 //*/
                 
                 if(typeof value === 'object' && !value.__isProxy)                                   // if the value to set is a non-proxied object ...
                     value = ROM._addAccessors(value, operation);                                        // ...make it a ROM proxy
                 
-                console.debug(`assigning: ${propName}`, 'rom', 'low');
+                // allow pre-set operation here - it's easier to do differential operations prior to the data being set I think?
+
+                console.debug(`assigning: ${propName}`, '#rom', '#low');
                 target[name] = value;                                                               // set the value
                 
-                console.debug(`call write: ${propName}`, 'rom', 'low');
+                console.debug(`call write: ${propName}`, '#rom', '#low');
                 operation(target, name);                                                            // call the custom operation    // oldValue / newValue / receiver?
-                console.debug(`finish set: ${propName}`, 'rom', 'low');
+                console.debug(`finish set: ${propName}`, '#rom', '#low');
                 return true;
             }
         };
@@ -104,7 +105,7 @@ class ROM
 
         Object.defineProperty(proxy, '__isProxy', { value: true, enumerable: false });              // record whether the object has been proxified (there's no way to tell otherwise) // ideally use symbol instead
         
-        console.debug(`iterating`, 'rom', 'low');
+        console.debug(`iterating`, '#rom', '#low');
         Object.entries(obj3ct)                                                                      // entries gives the same looking array whether obj3ct is an object or an array...   // compare: Object.entries({a:1,b:2,c:3}) and Object.entries(['a','b','c'])
               .forEach(([key, value]) =>                                                                // array destructure into variables of arrow function...
                         {
@@ -112,7 +113,7 @@ class ROM
                                 obj3ct[key] = ROM._addAccessors(value, operation);                              // proxy the value and assign it back to its original place
                         });
 
-        console.debug(`returning ${JSON.stringify(proxy)}`, 'rom', 'low');
+        console.debug(`returning ${JSON.stringify(proxy)}`, '#rom', '#low');
         return proxy;
     }
 

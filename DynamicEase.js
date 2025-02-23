@@ -41,7 +41,7 @@ class DynamicEase
         this.maxSpeed = options.maxChangePerSec / stepsPerSec;
         this.acc = options.acc / stepsPerSec;
 
-        console.debug(`max speed: ${this.maxSpeed} / acceleration: ${this.acc} / steps/s: ${stepsPerSec}`, 'dynamicease', 'low');
+        console.debug(`max speed: ${this.maxSpeed} / acceleration: ${this.acc} / steps/s: ${stepsPerSec}`, '#dynamicease', '#low');
         
         //this.target = target;
         this.set(target);
