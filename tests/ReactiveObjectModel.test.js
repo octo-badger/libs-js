@@ -13,7 +13,7 @@ test('simplest reactive object', async () =>
         expect(name).toEqual('x');
     }
 
-    const rom = new ROM({ operation: testOp, logger: null });
+    const rom = new ROM({ operation: testOp });
     let data = await rom.getModel();
 
     expect(data).toEqual({});
@@ -38,8 +38,7 @@ test('nested reactive object', async () =>
 
     const rom = new ROM({   
                             defaultData: { x: { y: { z: {} } } }, 
-                            operation: testOp, 
-                            logger: null 
+                            operation: testOp
                         });
     let data = await rom.getModel();
 
@@ -74,8 +73,7 @@ test('complex object added to complex object still has reactive leaves', async (
 
     const rom = new ROM({   
                             defaultData: { x: { y: { z: {} } } }, 
-                            operation: testOp, 
-                            logger: null 
+                            operation: testOp
                         });
     let data = await rom.getModel();
 
@@ -103,7 +101,7 @@ test('simple reactive array', async () =>
         expect(name).toEqual('0');                                                      // 0 index when pushing to an empty array
     }
 
-    const rom = new ROM({ defaultData: [], operation: testOp, logger: null });
+    const rom = new ROM({ defaultData: [], operation: testOp });
     let data = await rom.getModel();
 
     expect(data).toEqual([]);
