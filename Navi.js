@@ -1,6 +1,6 @@
 /*
-    Navi is Link's shoulder angel in Ocarina of Time.
-    Spawns 3 other processes, and inhabits the application importing it - all 4 processes then watches the others for inactivity.
+    Navi is Link's shoulder-angel in Ocarina of Time.
+    Spawns 3 other processes, and inhabits the application importing it - all 4 processes then watch each other for inactivity.
     Each Navi instance watches all the others, but each is watched with varying intensity (determined by relativePriority() ).
 
     Beware! The main application port is hard-assumed to be a multiple of 10 (ending in a zero) - I suspect bad things would happen if this is not the case.
@@ -29,10 +29,12 @@
     
     > node index.js
         - require(navi.js)
-        
-
 */
-
+        
+/**
+ * argument handling - this may mess with application arguments as it's quite naive
+ * @returns an args object with named and typed properties
+ */
 function getArgs() 
 {
     let params = process.argv.slice(2);                                     // all but the first 2 arguments
@@ -43,11 +45,12 @@ function getArgs()
         command: process.argv[0],                                               // should be 'path/to/node'
         application: process.argv[1],                                           // 'path/to/scriptFile.js' - will not always be '.../Navi.js'
         kill: params.some(p => p === 'kill'),                                   // see if 'kill' was passed
-        port: parseInt(params.find(p => isInt(p)) || 3230),                     // any integer is assumed to be the port - default to 3230
+        port: params.find(p => isInt(p)) || '3230'                              // any integer is assumed to be the port - default to 3230 (keep as a string for a moment so we can filter it easily)
     };
 
-    params = params.filter(p => p !== 'kill' && !isInt(p));                     // remove already processed arguments
-    args.entry = params[0];                                                     // any remaining argument should be the entry script (the script the Navi need to keep awake)
+    params = params.filter(p => p !== 'kill' && p !== args.port);               // filter out already processed arguments (including port still as string)
+    args.port = parseInt(args.port);                                            // parse the port to an int... phew!
+    args.entry = params[0];                                                     // (for Navi processes only) any remaining argument should be the entry script (the script the Navi need to keep awake)
 
     return args;
 }
@@ -82,17 +85,24 @@ console.log(`${pport}: args: `, args);
         };
     })()
 */
+const intervals = require('./Intervalz');
 const http = require('http');
 const { spawn } = require('child_process');
-const internal = require('stream');
 
 
 let naviNum = 3;                                                                                    // maintain 3 navis (hardcoded for now)
 const isNavi = /\/Navi\.js$/.test(args.application);                                                // is the application a Navi? (This will be true for Navi's that aren't the main application)
-var relativePriority = (local, remote) => ((local+naviNum) - remote) % naviNum;                     // calculation of a unique modifier for each navi's relationship to the remote navi
+// let heartToken = null;
+
+/**
+ * calculation of a unique greater or lesser 'affinity' for each navi's relationship to each of the other remote navis.
+ * Used to modify how regularly this navi will check on the others.
+ * @param {int} local this processes navi port
+ * @param {int} remote the other processes navi port that we're determining a relation to
+ */
+var relativePriority = (local, remote) => ((local+naviNum) - remote) % naviNum;
 console.debug(`${pport}: navi test: ${isNavi}`);
 
-let heartToken = null;
 const navis = new Map();
 
 const application = isNavi ? args.entry : args.application;                                             // get proper entry script from args (if it's a navi the application is sent as args.entry, otherwise it's just the application)
@@ -100,22 +110,14 @@ console.debug(`${pport}: navi started`, process.argv, '#keep');
 
 
 /**
- * Initialise a navi instance with the given port
+ * Initialize a navi instance with the given port
  * @param {int} port The port this navi should listen to (also used as the Navi's Id)
  */
 function init(port = 3230)
 {
     buildNaviCollection(port);
     spinUpServer(port);
-
-    for(const [key, value] of navis.entries())
-    {
-        //const salt = Math.floor(Math.random() * 15000);                                                     // random salt to introduce variation between
-        const salt = Math.floor(Math.random() * 2000);                                                          // random salt to introduce variation between Navi instances
-        const period = 5000 + salt + (relativePriority(port, key) * (3000 + salt));
-        console.debug(`${port}: will check ${key} every ${period}ms`);
-        heartToken = setInterval(() => checkHeartbeats(key, value), period);
-    }
+    setHeartbeats(port);
 }
 
 
@@ -132,10 +134,10 @@ function buildNaviCollection(port)
     {
         let potentialPort = portBase + i;                                                                   // construct the port number
         if(potentialPort !== port)                                                                          // if it's not the local port ...
-            navis.set(potentialPort,                                                                        // collect the info for the navi
+            navis.set(potentialPort,                                                                            // collect the info for the navi
                         { 
-                            procName: potentialPort === portBase ? application : __filename,                    // for navis, this script is the procName
-                            application: application                                                            // the application is the application
+                            procName: potentialPort === portBase ? application : __filename,                        // for navis, this script is the procName
+                            application: application                                                                // the application is the application
                         });
     }
     console.log(`${port}: collected: `, navis, '#keep', '#init');
@@ -158,16 +160,16 @@ function spinUpServer(port)
             response.writeHead(200);                                                                                // set success response code
             response.end(`alive ${process.pid}`);                                                                   // send process ID in response body
         }
-        else
+        else                                                                                                    // otherwise...
         {
-            response.writeHead(204);
-            response.end();
+            response.writeHead(204);                                                                                // set successful no-content response code
+            response.end();                                                                                         // end the response
         }
     });
     
-    httpServer.on('error', (e) =>                                                                               // if the server fails to start
+    httpServer.on('error', (e) =>                                                                               // if the server fails to start...
     {
-        if (e.code === 'EADDRINUSE')                                                                                // if the port is already in use
+        if (e.code === 'EADDRINUSE')                                                                                // if the port is already in use... (this almost certainly means a Navi is already listening here and the new process is unneeded)
         {
             console.log(`!!! another instance already listening on ${port} - quitting, goodbye`);
             process.exit(0);                                                                                        // quit
@@ -183,37 +185,59 @@ function spinUpServer(port)
 }
 
 
-// request options
-const options = {
-    //hostname: '127.0.0.1',        // host / hostname defaults to localhost 
-    path: '/navi',
-    method: 'GET'
-};
-const aliveResponse = /alive (\d+)/;
+/**
+ * Set intervals to check each remote Navi is alive
+ * @param {int} port local navi port
+ */
+function setHeartbeats(port)
+{
+    for(const [remotePort, remoteNavi] of navis.entries())
+    {
+        const salt = Math.floor(Math.random() * 2000);                                                          // random salt to introduce variation between Navi instances
+        const period = 5000 + salt + (relativePriority(port, remotePort) * (3000 + salt));
+        console.debug(`${port}: will check ${remotePort} every ${period}ms`);
+        intervals.add(() => checkHeartbeat(remotePort, remoteNavi), period);
+    }
+}
 
-function checkHeartbeats(remotePort, navi)
+
+
+// request options for checking heartbeats
+const options = {
+    //hostname: '127.0.0.1',                                                                                // no need - host / hostname defaults to localhost 
+    path: '/navi',                                                                                          // path to hit for proof-of-life
+    method: 'GET'                                                                                           // git it, gowaan
+};
+const aliveResponse = /alive (\d+)/;                                                                    // regex to match the alive response
+
+/**
+ * Check a remote Navi is still alive - poke it... poke it with a stick
+ * @param {*} remotePort the remote navi port
+ * @param {*} navi remote navi metadata
+ */
+function checkHeartbeat(remotePort, navi)
 {
     console.log(`${pport}: checking heartbeat for ${remotePort}`, '#heartbeat', '#low');
-    options.port = remotePort;
+    options.port = remotePort;                                                                              // set the report port for the request
 
     // const req = http.request(options, (res) => 
-    http.request(options, (res) => 
+    http.request(options, (res) =>                                                                          // call the remote navi ...
     {
-        let data = '';
-        res.on('data', (chunk) => data += chunk);
+        let data = '';                                                                                          // prepare for data
+        res.on('data', (chunk) => data += chunk);                                                               // gather data
         
-        res.on('end', () => {
+        res.on('end', () => {                                                                                   // when the response ends ...
             console.log(`${pport}: Body(${remotePort}):`, data, '#heartbeat', '#low');
-            if(aliveResponse.test(data))
+            if(aliveResponse.test(data))                                                                            // if aliveness is confirmed ...
             {
-                navi.pid = data.replace(aliveResponse, '$1');
+                navi.pid = data.replace(aliveResponse, '$1');                                                           // store the remote Navi's process id in it's metadata
                 console.debug(`${pport}: set ${remotePort}'s PID to ${navi.pid}`, '#heartbeat', '#low');
             }
         });
         
-    }).on("error", (err) => {
+    }).on("error", (err) => {                                                                               // if there's an error whilst calling the remote navi ...
         console.log(`${pport}: Error: ${remotePort}, ${err}`);
-        dealWithDeadness(remotePort, navi);
+        dealWithDeadness(remotePort, navi);                                                                     // handle the deadness
     }).end()
 }
 
@@ -239,7 +263,7 @@ function dealWithDeadness(deadPort, deadNavi)
             try{
                 process.kill(deadNavi.pid, 'SIGKILL');                                         // try to kill the dead Navi by process id (this could be more subtle, but we're just cleaning up here...)
             } catch(e) {
-                console.error();(`${pport}: error SIGKILLing ${deadNavi.pid}`);
+                console.error();(`${pport}: error SIGKILLing ${deadNavi.pid}`, '#keep');
             }
         }
     }, priority * 100));
@@ -294,7 +318,8 @@ function quit()
         console.debug(`quit() called - Navi started with KILL ARG and port ${pport}:`, '#quit', '#keep'):
             console.debug(`${pport}: quit() called`, '#quit', '#keep');
 
-    heartToken && clearInterval(heartToken);                                                                    // make sure navis aren't going to be respawned after quitting :)
+    // heartToken && clearInterval(heartToken);                                                                    // make sure navis aren't going to be respawned after quitting :)
+    intervals.clearAll();                                                                                       // make sure navis aren't going to be respawned after quitting :)
 
     console.log(`${pport}: exiting (clearing ${timeouts.length} deferred wake-ups)`, '#quit');
     timeouts.forEach(t => clearTimeout(t));                                                                     // clear all the timeouts
@@ -304,12 +329,12 @@ function quit()
     //navis.size === 0 && navis.set(pport, {});                                                                 // ok - this will be the case when running "node lib/Navi.js kill" as init() will not be called - that means the http server won't be running and sending kill to pport will actually call the main application (by default - you could specify another port on the cli) // actually not sure why I did this? // if we're the only navi, add ourselves to the list so we can kill ourselves
     navis.size === 0 && buildNaviCollection(pport);                                                             // if the navis array is empty, init() hasn't run (this happens if Navi.js is started with a 'kill' arg) - if so, build the navis array so we can tell them all to quit 
 
-    for(const [key, navi] of navis.entries())                                                                   // tell everyone to quit
+    for(const [naviPort, navi] of navis.entries())                                                                   // tell everyone to quit
     {
         if(!navi.killed)                                                                                            // don't kill the same port twice
         {
-            console.log(`${pport}: killing ${key}`, '#quit');
-            options.port = key;                                                                                         // set the port to kill
+            console.log(`${pport}: killing ${naviPort}`, '#quit');
+            options.port = naviPort;                                                                                    // set the port to kill
             navi.killed = true;                                                                                         // mark it as killed        
             http.request(options, () => console.log(`${pport}: killed ${options.port}`) )                               // kill it
                 // .on("error", (err) => console.log(`${pport}: kill error: `, err))
@@ -318,30 +343,30 @@ function quit()
         }
     }
     
-    setTimeout(quit, 1050);                                                                                     // wait a bit, then quit again (eventually this will disappear when process.exit() kicks in)
+    setTimeout(quit, 1050);                                                                                     // TODO - remove this? // wait a bit, then quit again (eventually this will disappear when process.exit() kicks in)
     setTimeout(() => process.exit(0), 2000);                                                                    // wait a bit, then exit
 }
 
 
 args.kill ? quit() : init(args.port);                                                                       // quit or init?
         
-module.exports = { init };
+// module.exports = { init };                                                                                  // don't think this is needed,ot even should be here - it's a throwback
 
 
 
-let count = 3;
-/**
- * wave your hands and say hi!
- */
-function go()
-{
-    setTimeout(() =>
-    {
-        console.log(`${pport}: Navi ${count}`, '#low');
-        if(count-- > 0) go();
-    },
-    1000);
-}
+// let count = 3;
+// /**
+//  * wave your hands and say hi!
+//  */
+// function go()
+// {
+//     setTimeout(() =>
+//     {
+//         console.log(`${pport}: Navi ${count}`, '#low');
+//         if(count-- > 0) go();
+//     },
+//     1000);
+// }
 
-go();
+// go();
 
